@@ -17,9 +17,9 @@ FROM mechanic
 
 ```
 SELECT gnz, 
-	   ser$reg_certif, 
-	   num$reg_certif, 
-	   date$reg_certif 
+       ser$reg_certif, 
+       num$reg_certif, 
+       date$reg_certif 
 FROM vehicle
 ```
 	
