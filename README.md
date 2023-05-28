@@ -315,7 +315,7 @@ FROM vehicle
 
 ```
 SELECT name "Производитель", 
-	   factory_name "Завод"  
+       factory_name "Завод"  
 FROM factory f
 INNER JOIN brand b ON b.idb = f.idb
 ORDER BY name
@@ -461,9 +461,10 @@ WHERE t2.gnz = 'c172ac57'
       t1.gnz != t2.gnz
 ```
 </details>
-	
-## Вложенные запросы
-	
+
+<details>
+<summary>Вложенные запросы</summary>
+</details>	
 ## Теоретико-множественные операции
 	
 ## Агрегирование данных, групповые операции
