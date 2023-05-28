@@ -603,157 +603,125 @@ HAVING COUNT(date_work::date) >= 2
 ```
 	
 </details>	
+
+<details>
+<summary>Теоретико-множественные операции</summary>
 	
-## Теоретико-множественные операции
+51. Найти автомобили, претендующие на отнесение к классу раритетных. К таковым относят автомобили отечественного производства в возрасте не менее 30 лет, либо зарубежные автомобили в возрасте не менее 25 лет, либо автомобили, имеющие пробег не менее 500000 км без учета возраста. Указать государственный номерной знак, год выпуска и пробег каждого из них.
+
+```
+SELECT v.gnz,
+       EXTRACT(YEAR FROM v.date_made) god,
+       v.run
+FROM vehicle v
+JOIN brand b ON b.idb = v.idb
+WHERE (b.idb IN (1, 2, 8, 9)
+       AND
+       DATE_PART('YEAR', AGE(CURRENT_DATE, v.date_made))::INT >= 30)
+       OR
+       (b.idb IN (22,23,11,31,32,41,42)
+       AND 
+       DATE_PART('YEAR', AGE(CURRENT_DATE, v.date_made))::INT >= 25)
+       OR
+       (v.run > 500000)
+```
+
+52. Найти автомобили, которые посещали предприятие только по пятницам. Выдать государственные номерные знаки. 
+
+```
+SELECT DISTINCT m.gnz
+FROM maintenance m
+WHERE EXTRACT(DOW FROM date_work) = 5
+	  AND
+	  NOT EXISTS	
+	  			(SELECT gnz
+				FROM maintenance mt
+				WHERE m.gnz = mt.gnz
+				 	  AND
+				      EXTRACT(DOW FROM date_work) != 5)
+```
+	
+53. Найти все автомобили, обслуженные механиком Баженовым М.К. (все виды ТО), и (в том числе включительно) отремонтированные механиком Савостьяновым А.В. (только ремонты). Указать их государственные номерные знаки.
+
+```
+WITH
+baz AS
+(
+	    SELECT gnz
+	    FROM maintenance
+	    WHERE 
+		(id_mech = 5
+		AND 
+		mt_id::INT BETWEEN 1 AND 18)
+),
+sev AS
+(
+	SELECT gnz
+	FROM maintenance
+	WHERE id_mech = 1
+	      AND
+	      mt_id::INT = 20
+)
+SELECT baz.gnz
+FROM baz
+JOIN sev ON baz.gnz = sev.gnz
+```
+	
+54. Найти механиков, которые в 2018 году ежемесячно (без пропусков) получали наряды на обслуживание или ремонт автомобилей. Выдать их фамилии и инициалы.
+
+```
+(SELECT first_value(sname_initials) OVER (ORDER BY 1) sname 
+FROM mechanic AS m1
+JOIN maintenance m ON m1.id_mech = m.id_mech
+WHERE extract('year' from date_work) = 2018 
+GROUP BY m1.id_mech, m1.sname_initials 
+HAVING COUNT(DISTINCT extract('month' from date_work)) = 12)
+```
+	
+55. Найти автомобили, которые обслуживались только в 2018 году. Указать государственный номерной знак, дату проведения обслуживания и техническое заключение по его результатам.
+
+```
+SELECT gnz,
+       date_work dt,
+       tech_cond_resume tcr
+FROM maintenance m
+WHERE EXTRACT(YEAR FROM date_work::date) = 2018
+	  AND
+	  NOT EXISTS
+	  		(SELECT gnz
+			FROM maintenance mt
+			WHERE m.gnz = mt.gnz
+			AND
+			EXTRACT(YEAR FROM date_work::date) != 2018
+			)
+```
+
+56. Выдать список рабочих дней в феврале 2018 года, в которые не выполнялись заказы по обслуживанию или ремонту автомобилей. Выдать даты дней без заказов.
+
+```
+WITH
+gendt AS
+(
+SELECT i::date 
+FROM generate_series('2018-02-01',
+		     '2018-02-28',
+		     '1 day'::INTERVAL) i
+)
+SELECT gendt.i
+FROM gendt
+LEFT JOIN maintenance mt ON mt.date_work::date = gendt.i
+WHERE mt.date_work IS NULL
+	  AND
+	  EXTRACT(ISODOW FROM gendt.i) NOT IN (6,7)
+	  AND gendt.i <> '2018-02-23'	
+```
+</details>	
 	
 ## Агрегирование данных, групповые операции
 	
 ## Совместное использование конструкций языка SQL
 	
 ## Задания повышенной сложности
-
-
-
-
-
-Вложенные запросы
-
-42.	 Найти автомобили, которые никогда не обслуживались предприятием. Выдать список государственных номерных знаков этих автомобилей.
-Ответ: 2 строки, 1 столбец. Автомобили "c519op57"и "a333aa57".
-
-SELECT v.gnz 
-FROM vehicle v
-WHERE v.gnz NOT IN (SELECT gnz 
-                    FROM maintenance)
-
-43.	 Составить список автомобилей (государственный номерной знак и стоимость), которые стоят не более средней стоимости всех зарегистрированных автомобилей.
-Ответ: 111 строк, 2 столбца. 
-Сумма стоимости найденных автомобилей 83 170 150 руб. 00 коп.
-
-SELECT gnz, 
-	   cost
-FROM vehicle 
-WHERE cost<=(SELECT AVG(cost) 
-		     FROM vehicle)
-
-44.	 Найти автомобили, которые были приобретены не новыми. К таким можно отнести экземпляры, у которых год и месяц начала эксплуатации и год и месяц даты выдачи свидетельства о регистрации транспортного средства не совпадают.
-Ответ: 76 автомобилей, один из которых имеет государственный номерной знак "o002oo57".
-
-SELECT gnz
-FROM vehicle 
-WHERE (SELECT to_char(date_use, 'yyyy.mm')) 
-	  != 
-	  (SELECT to_char(date$reg_certif, 'yyyy.mm'))
-
-45.	 Найти автомобили, изготовленные на том же заводе, что и автомобиль с государственным номерным знаком "x027kp57". Выдать их государственные номерные знаки, наименование, почтовый адрес и контактный телефон завода. 
-Ответ: автомобиль с государственным номерным знаком "c014xp57", изготовленный на заводе BMW в Австрии.
-
-SELECT v.gnz, 
-       f.factory_name, 
-       f.post_addr, 
-       f.phone
-FROM factory f
-JOIN vehicle v ON v.idf = f.idf
-     AND 
-     (SELECT vehicle.idf 
-     FROM vehicle 
-     WHERE vehicle.gnz='x027kp57')
-     =
-     f.idf 
-     AND v.gnz != 'x027kp57'
-
-46.	 Составить список автомобильных брендов, не имеющих собственного производства на территории Российской Федерации. Указать их наименования, государственную принадлежность.
-Ответ: 7 компаний, три из ФРГ, по две из Франции и Японии.
-
-SELECT b.name, 
-       st.name 
-FROM state st
-JOIN brand b ON b.st_id = st.st_id
-AND 
-(SELECT state.st_id 
-FROM state 
-WHERE state.name='Российская Федерация')
-!= 
-b.st_id
-
-47.	 Найти производителей, которые имеют заводы, как на территории Российской Федерации, так и за ее пределами. Указать наименование бренда, название и адрес размещения завода.
-Ответ: производители "BMW" и "Mercedes-Benz". Всего 6 строк.
-WITH 
-rus_br AS
-(
-SELECT idb
-FROM factory
-WHERE st_id != 1
-	  AND 
-	  legal_addr ILIKE '%Россия%'
-)
-SELECT b.name,
-	   f.factory_name,
-	   f.legal_addr
-FROM brand b 
-JOIN factory f ON f.idb = b.idb
-WHERE b.idb IN (SELECT *
-			   FROM rus_br
-			  )
-
-
-48.	 Определить почтовый адрес завода, изготовившего автомобиль с государственным номерным знаком "a723ak57", для направления претензии по недостатку, выявленному в ходе проведения ремонта 6 ноября 2018 года. В выдачу включить государственный номерной знак, производителя, марку и модель автомобиля в одной колонке через запятую, дату изготовления автомобиля, наименование завода-изготовителя, его почтовый адрес, дату проведения ремонта, серию и номер выданной диагностической карты в одной колонке через пробел, техническое заключение по ремонту.
-Ответ: 1 строка, 8 столбцов.
-
-SELECT mt.gnz, 
-	   concat_ws(', ',b.name, m.name, md.model_name), 
-	   v.date_made,
-	   f.factory_name, 
-	   f.post_addr, 
-	   mt.date_work, 
-	   concat_ws(' ',mt.s$diag_chart, mt.n$diag_chart),
-	   mt.tech_cond_resume
-FROM maintenance mt
-INNER JOIN vehicle v ON v.gnz 
-		IN (
-    	SELECT gnz 
-    	FROM maintenance
-        WHERE gnz = 'a723ak57')
-	    AND mt.date_work::DATE = '06-11-2018'
-JOIN marka m ON m.idm = mt.idm
-JOIN brand b ON b.idb = mt.idb
-JOIN model md ON md.idmo = mt.idmo
-JOIN factory f ON f.idf = mt.idf
-
-
-
-
-
-
-
-
-49.	 Рассчитать количество заказов по видам работ. Выдачу сформировать в виде таблицы, где предусмотреть три столбца: "Техническое обслуживание", включив в подсчет все виды технического обслуживания; "Ремонт"; "Предпродажная подготовка". 
-Ответ: 413 ТО, 138 ремонтов, 86 предпродажных подготовок.
-
-SELECT 
-(SELECT COUNT(date_work) 
-FROM maintenance 
-WHERE mt_id::INT BETWEEN 1 AND 18) "Техническое обслуживание",
-(SELECT COUNT(date_work) 
-FROM maintenance 
-WHERE mt_id::INT = 20) "Ремонт", 
-(SELECT COUNT(date_work) 
-FROM maintenance 
-WHERE mt_id::INT = 19) "Предпродажная подготовка"
-FROM maintenance
-LIMIT 1
-
-
-50.	 Найти механиков, которые выполнили 2 и более заказов в один день. Выдать их фамилии и инициалы.
-Ответ: 8 механиков, один из которых Слепцов П.Н.
-
-SELECT m.sname_initials
-FROM maintenance mt
-JOIN mechanic m ON mt.id_mech = m.id_mech
-GROUP BY mt.date_work::Date, m.sname_initials
-HAVING COUNT(date_work::date) >= 2
-
-
 
 
 
