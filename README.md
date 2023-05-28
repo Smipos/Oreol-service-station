@@ -1177,7 +1177,8 @@ SELECT year,
                                                      AND mt.gnz = mt2.gnz
                                                      AND EXTRACT(year from date_work) <= year)
                                     AND EXTRACT(year from date_work) = year
-                                  GROUP BY mt.gnz) AS t USING (gnz)) AS t)                          AS lost_profit
+                                  GROUP BY mt.gnz) AS t USING (gnz)) AS t) 
+		AS lost_profit
 FROM years
 ORDER BY year
 ```
