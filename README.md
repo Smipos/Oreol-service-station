@@ -716,9 +716,122 @@ WHERE mt.date_work IS NULL
 	  AND gendt.i <> '2018-02-23'	
 ```
 </details>	
+
+<details>
+<summary>Агрегирование данных, групповые операции</summary>
 	
-## Агрегирование данных, групповые операции
+57. Определить количество работ, выполненных в 2017 году. 
+
+```
+SELECT COUNT(gnz) 
+FROM maintenance 
+WHERE EXTRACT(year FROM date_work)=2017
+```
 	
+58. Рассчитать общую сумму НДС, уплаченную в 2016 году (НДС рассчитывается как 18% от суммы платежа) за приобретенные автомобили. Результат округлить до копеек и представить в виде количества рублей и копеек. 
+
+```
+SELECT to_char(SUM(cost)*0.18,'999 999 999 руб. 99 коп')
+FROM vehicle 
+WHERE EXTRACT(year FROM date$reg_certif)=2016
+```
+	
+59. Определить, сколько учтено автомобилей, зарегистрированных в Орловской области. 
+
+```
+SELECT COUNT(gnz) 
+FROM vehicle
+WHERE SUBSTRING(gnz FROM 7 FOR 2)::INT IN ( 57 )
+```
+	
+60. Определить средний возраст механиков предприятия с точностью до двух значащих цифр мантиссы.
+
+```
+SELECT ROUND(((EXTRACT(YEAR FROM AVG(AGE(born))) * 12 
+       + 
+       EXTRACT(MONTH FROM AVG(AGE(BORN))))/12), 2) 
+FROM mechanic
+```
+	
+61. Определить общую и среднюю стоимость с точностью до копейки, общий и средний пробег с точностью до 100 м всех зарегистрированных автомобилей. Указать в качестве имен столбцов требуемые вычисления.
+
+```
+SELECT ROUND(SUM(cost), 2)  "Общая стоимость",
+       ROUND(AVG(cost), 2) "Средняя стоимость",
+       ROUND(SUM(run), 1) "Общий пробег",
+       ROUND(AVG(run), 1) "Средний пробег"
+FROM vehicle
+```
+	
+62. Определить средний пробег автомобилей каждого бренда. Результат округлить до 10 м. 
+
+```
+SELECT ROUND(AVG(vehicle.run),2),
+       b.name
+FROM vehicle
+JOIN brand b ON b.idb = vehicle.idb
+GROUP BY vehicle.idb, b.name
+```
+
+63. Рассчитать среднюю стоимость с точностью до копейки каждой марки зарегистрированных автомобилей. В выдачу включить наименование бренда, марки и среднюю стоимость.
+
+```
+SELECT AVG(v.cost)::money,
+       b.name,
+       m.name
+FROM vehicle v
+JOIN brand b ON b.idb = v.idb
+JOIN marka m ON m.idm = v.idm
+GROUP BY  b.name, m.name
+```
+	
+64. Определить с точностью до двух значащих цифр мантиссы средний возраст автомобилей каждой марки. Для автомобилей, у которых не предусмотрена марка, указывать модель.
+
+```
+SELECT DISTINCT ON (m.name) ROUND(CAST(AVG(DATE_PART('YEAR', AGE(v.date_made)) )AS NUMERIC), 2),
+	CASE
+	   WHEN m.name IS NULL THEN  md.model_name
+	   ELSE m.name
+	END
+FROM vehicle v
+JOIN marka m ON m.idm = v.idm
+JOIN model md ON v.idmo = md.idmo
+GROUP BY m.name, md.model_name
+```
+	
+65. Определить год, за который поступило больше всего заказов (относительно других лет).
+
+```
+SELECT EXTRACT(year FROM date_work::date) years
+FROM maintenance
+GROUP BY EXTRACT(year FROM date_work::date)
+ORDER BY COUNT(date_work) DESC
+LIMIT 1
+```
+
+66. Построить распределение марок автомобилей, ограничив список марками, встречающимися не менее 8 раз. Список упорядочить по уменьшению количества экземпляров марки.
+
+```
+SELECT CONCAT(b.name, ' ',m.name),
+       COUNT(m.name)
+FROM vehicle v
+JOIN marka m ON m.idm = v.idm
+JOIN brand b ON b.idb = v.idb
+GROUP BY b.name, m.name
+HAVING COUNT(m.name) >= 8
+ORDER BY 2 DESC
+```
+	
+67. Найти автомобили, владельцы которых за все время разместили заказ только один раз. Выдать государственные номерные знаки.
+
+```
+SELECT gnz
+FROM maintenance
+GROUP BY gnz
+HAVING COUNT(date_work) = 1
+```
+	
+</details>	
 ## Совместное использование конструкций языка SQL
 	
 ## Задания повышенной сложности
@@ -730,125 +843,7 @@ WHERE mt.date_work IS NULL
 
 Теоретико-множественные операции
 
-51.	 Найти автомобили, претендующие на отнесение к классу раритетных. К таковым относят автомобили отечественного производства в возрасте не менее 30 лет, либо зарубежные автомобили в возрасте не менее 25 лет, либо автомобили, имеющие пробег не менее 500000 км без учета возраста. Указать государственный номерной знак, год выпуска и пробег каждого из них.
-Ответ: 4 строки, 3 столбца. Автомобиль с государственным номерным знаком "c945op57" вызывает подозрение о некорректном указании пробега.
 
-SELECT v.gnz,
-	   EXTRACT(YEAR FROM v.date_made) god,
-	   v.run
-FROM vehicle v
-JOIN brand b ON b.idb = v.idb
-WHERE (b.idb IN (1, 2, 8, 9)
-	  AND
-	  DATE_PART('YEAR', AGE(CURRENT_DATE, v.date_made))::INT >= 30)
-	  OR
-	  (b.idb IN (22,23,11,31,32,41,42)
-	   AND 
-	   DATE_PART('YEAR', AGE(CURRENT_DATE, v.date_made))::INT >= 25)
-	  OR
-	  (v.run > 500000)
-
-
-
-
-
-
-
-
-
-
-
-
-52.	 Найти автомобили, которые посещали предприятие только по пятницам. Выдать государственные номерные знаки. 
-Ответ: 9 автомобилей, один из которых – "c806yc57".
-
-SELECT DISTINCT m.gnz
-FROM maintenance m
-WHERE EXTRACT(DOW FROM date_work) = 5
-	  AND
-	  NOT EXISTS	
-	  			(SELECT gnz
-				FROM maintenance mt
-				WHERE m.gnz = mt.gnz
-				 	  AND
-				      EXTRACT(DOW FROM date_work) != 5)
-
-53.	 Найти все автомобили, обслуженные механиком Баженовым М.К. (все виды ТО), и (в том числе включительно) отремонтированные механиком Савостьяновым А.В. (только ремонты). Указать их государственные номерные знаки.
-Ответ: 1 автомобиль, государственный номерной знак "k857po77".
-
-WITH
-baz AS
-(
-		SELECT gnz
-	    FROM maintenance
-	    WHERE 
-			(id_mech = 5
-			AND 
-			mt_id::INT BETWEEN 1 AND 18)
-),
-sev AS
-(
-	SELECT gnz
-	FROM maintenance
-	WHERE id_mech = 1
-		 AND
-		 mt_id::INT = 20
-)
-SELECT baz.gnz
-FROM baz
-JOIN sev ON baz.gnz = sev.gnz
-
-54.	 Найти механиков, которые в 2018 году ежемесячно (без пропусков) получали наряды на обслуживание или ремонт автомобилей. Выдать их фамилии и инициалы.
-Ответ: Голубев Д.Н.
-
-(SELECT first_value(sname_initials) OVER (ORDER BY 1) sname 
-FROM mechanic AS m1
-JOIN maintenance m ON m1.id_mech = m.id_mech
-WHERE extract('year' from date_work) = 2018 
-GROUP BY m1.id_mech, m1.sname_initials 
-HAVING COUNT(DISTINCT extract('month' from date_work)) = 12)
-55.	 Найти автомобили, которые обслуживались только в 2018 году. Указать государственный номерной знак, дату проведения обслуживания и техническое заключение по его результатам.
-Ответ: 9 строк, 3 столбца.
-
-SELECT gnz,
-	   date_work dt,
-	   tech_cond_resume tcr
-FROM maintenance m
-WHERE EXTRACT(YEAR FROM date_work::date) = 2018
-	  AND
-	  NOT EXISTS
-	  			(SELECT gnz
-				FROM maintenance mt
-				WHERE m.gnz = mt.gnz
-					  AND
-				 	  EXTRACT(YEAR FROM date_work::date) != 2018
-				)
-
-
-
-
-
-
-
-
-56.	 Выдать список рабочих дней в феврале 2018 года, в которые не выполнялись заказы по обслуживанию или ремонту автомобилей. Выдать даты дней без заказов.
-Ответ: 12 дней, в том числе 14 февраля 2018 года.
-
-WITH
-gendt AS
-(
-SELECT i::date 
-FROM generate_series('2018-02-01',
-				      '2018-02-28',
-				      '1 day'::INTERVAL) i
-)
-SELECT gendt.i
-FROM gendt
-LEFT JOIN maintenance mt ON mt.date_work::date = gendt.i
-WHERE mt.date_work IS NULL
-	  AND
-	  EXTRACT(ISODOW FROM gendt.i) NOT IN (6,7)
-	  AND gendt.i <> '2018-02-23'
 
 Агрегирование данных, групповые операции
 
