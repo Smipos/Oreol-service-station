@@ -4,7 +4,9 @@
 
 <details><summary>Простая выборка</summary>
 1. Выдать список механиков (все столбцы таблицы mechanic).
+	
 Ответ: 24 строки, 5 столбцов.
+	
 ```
 SELECT * 
 FROM mechanic
