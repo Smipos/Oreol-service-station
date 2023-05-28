@@ -831,122 +831,295 @@ GROUP BY gnz
 HAVING COUNT(date_work) = 1
 ```
 	
-</details>	
-## Совместное использование конструкций языка SQL
+</details>
 	
-## Задания повышенной сложности
+<details>
+<summary>Совместное использование конструкций языка SQL</summary>
+	
+68. Найти автомобили, выпущенные в Евросоюзе. Выдать государственные номерные знаки, государственную принадлежность и наименование завода-изготовителя, его фактический адрес и телефон.
 
-
-
-
-
-
-Теоретико-множественные операции
-
-
-
-Агрегирование данных, групповые операции
-
-57.	 Определить количество работ, выполненных в 2017 году. 
-Ответ: закрыто 98 заказов.
-
-SELECT COUNT(gnz) 
-FROM maintenance 
-WHERE EXTRACT(year FROM date_work)=2017
-
-58.	 Рассчитать общую сумму НДС, уплаченную в 2016 году (НДС рассчитывается как 18% от суммы платежа) за приобретенные автомобили. Результат округлить до копеек и представить в виде количества рублей и копеек. 
-Ответ: 7 021 189 руб. 80 коп.
-
-SELECT to_char(SUM(cost)*0.18,'999 999 999 руб. 99 коп')
-FROM vehicle 
-WHERE EXTRACT(year FROM date$reg_certif)=2016
-59.	 Определить, сколько учтено автомобилей, зарегистрированных в Орловской области. 
-Ответ: 146 автомобилей.
-
-SELECT COUNT(gnz) 
-FROM vehicle
-WHERE SUBSTRING(gnz FROM 7 FOR 2)::INT IN ( 57 )
-
-60.	 Определить средний возраст механиков предприятия с точностью до двух значащих цифр мантиссы.
-Ответ: по состоянию на ноябрь 2022 года –  42.7 года.
-
-SELECT ROUND(((EXTRACT(YEAR FROM AVG(AGE(born))) * 12 
-       + 
-       EXTRACT(MONTH FROM AVG(AGE(BORN))))/12), 2) 
-FROM mechanic
-
-61.	 Определить общую и среднюю стоимость с точностью до копейки, общий и средний пробег с точностью до 100 м всех зарегистрированных автомобилей. Указать в качестве имен столбцов требуемые вычисления.
-Ответ: 368 750 290.00, 2 290 374.47, 26 075 702.0, 161 960.8.
-
-SELECT ROUND(SUM(cost), 2)  "Общая стоимость",
-	   ROUND(AVG(cost), 2) "Средняя стоимость",
-	   ROUND(SUM(run), 1) "Общий пробег",
-	   ROUND(AVG(run), 1) "Средний пробег"
-FROM vehicle
-
-62.	 Определить средний пробег автомобилей каждого бренда. Результат округлить до 10 м. 
-Ответ: 10 строк, 2 столбца. Средний пробег автомобилей BMW 70937.40 км.
-
-SELECT ROUND(AVG(vehicle.run),2),
-		b.name
-FROM vehicle
-JOIN brand b ON b.idb = vehicle.idb
-GROUP BY vehicle.idb, b.name
-
-
-63.	 Рассчитать среднюю стоимость с точностью до копейки каждой марки зарегистрированных автомобилей. В выдачу включить наименование бренда, марки и среднюю стоимость.
-Ответ: 47 строк, 3 столбца.
-
-SELECT AVG(v.cost)::money,
-	   b.name,
-	   m.name
+```
+SELECT v.gnz,
+       s.name,
+       f.factory_name,
+       f.legal_addr,
+       f.phone
 FROM vehicle v
-JOIN brand b ON b.idb = v.idb
-JOIN marka m ON m.idm = v.idm
-GROUP BY  b.name, m.name
+JOIN state s ON s.st_id = v.st_id
+JOIN factory f ON f.idf = v.idf
+WHERE s.st_id IN (2,4)
+```
 
-64.	 Определить с точностью до двух значащих цифр мантиссы средний возраст автомобилей каждой марки. Для автомобилей, у которых не предусмотрена марка, указывать модель.
-Ответ: 49 строк, 2 столбца.
+69. Найти автомобили, которые проходили на предприятии только предпродажную подготовку. Указать их государственные номерные знаки, дату предпродажной подготовки, фамилию и инициалы механика, проводившего работы.
 
-SELECT DISTINCT ON (m.name) ROUND(CAST(AVG(DATE_PART('YEAR', AGE(v.date_made)) )AS NUMERIC), 2),
-	CASE
-	   WHEN m.name IS NULL THEN  md.model_name
-	   ELSE m.name
-	END
-FROM vehicle v
-JOIN marka m ON m.idm = v.idm
-JOIN model md ON v.idmo = md.idmo
-GROUP BY m.name, md.model_name
+```
+SELECT mt.gnz,
+       mt.date_work::DATE,
+       m.sname_initials
+FROM maintenance mt
+JOIN mechanic m ON m.id_mech = mt.id_mech
+JOIN maintenancetype mtt ON mtt.mt_id = mt.mt_id
+WHERE mtt.mt_id::int = 19
+```
 
-65.	 Определить год, за который поступило больше всего заказов (относительно других лет).
-Ответ: 2019 год.
+70. Определить автомобильный бренд, на который клиенты предприятия, вместе потратили больше всех денег (найти «автомобиль богатых»).
 
-SELECT EXTRACT(year FROM date_work::date) years
-FROM maintenance
-GROUP BY EXTRACT(year FROM date_work::date)
-ORDER BY COUNT(date_work) DESC
+```
+WITH 
+br AS
+(
+SELECT idb,
+       SUM(cost) totalc
+FROM vehicle
+GROUP BY idb
+ORDER BY totalc DESC
 LIMIT 1
+)
+SELECT b.name
+FROM brand b
+JOIN br ON b.idb = br.idb
+```
 
+71. Определить, сколько автобусов обслужено механиком Кротовым К.О.
 
-66.	 Построить распределение марок автомобилей, ограничив список марками, встречающимися не менее 8 раз. Список упорядочить по уменьшению количества экземпляров марки.
-Ответ: "ГАЗ Газель" (24), "ВАЗ Веста" (16), "BMW Serie 3" (8).
+```
+SELECT COUNT(mt.id_tg)
+FROM maintenance mt
+WHERE mt.id_mech = (SELECT id_mech
+		    FROM mechanic
+		    WHERE sname_initials ILIKE '%Кротов К.О.%')
+	 	    AND
+	 	    mt.id_tg = (SELECT id_tg
+				FROM transpgroup
+				WHERE name ILIKE '%Автобус%')
+```
+	
+72. Найти автомобили, которые были приобретены не новыми (интервал между датой выдачи свидетельства о регистрации транспортного средства и датой начала эксплуатации больше двух недель). Выдать государственные номерные знаки, производителя, марку, модель, серию, номер и дату выдачи свидетельства о регистрации транспортного средства, дату начала эксплуатации. Все данные, кроме даты начала эксплуатации организовать одним столбцом по формату: <Государственный номерной знак><Производитель><Марка><Модель>, Свидетельство о регистрации <Серия СРТС> № <Номер СРТС> выдано: <Дата выдачи СРТС>.
 
-SELECT CONCAT(b.name, ' ',m.name),
-	   COUNT(m.name)
+```
+SELECT v.date_use,
+       CONCAT(v.gnz, 
+              b.name,
+              mr.name,
+              md.model_name,
+              'Свидетельство о регистрации: ',v.ser$reg_certif,
+              '№',v.num$reg_certif,
+              'выдано: ', v.date$reg_certif
+              )
 FROM vehicle v
-JOIN marka m ON m.idm = v.idm
 JOIN brand b ON b.idb = v.idb
-GROUP BY b.name, m.name
-HAVING COUNT(m.name) >= 8
-ORDER BY 2 DESC
+JOIN marka mr ON mr.idm = v.idm
+JOIN model md ON md.idmo = v.idmo
+WHERE AGE(date$reg_certif, date_use) > '14 days'
+```
+	
+73. Сформировать список заводов по производству автомобилей, размещенных на территории Российской Федерации, и, в зависимости от того, входит ли страна бренда в Европейский союз или нет, указать наименование бренда, предприятия, почтовый или фактический адрес соответственно (для стран Евросоюза указывать почтовый адрес), телефон.
 
-67.	 Найти автомобили, владельцы которых за все время разместили заказ только один раз. Выдать государственные номерные знаки.
-Ответ: 35 автомобилей, один из которых "y474kx57".
+```
+SELECT b.name,
+       f.factory_name,
+	   CASE
+	   		WHEN f.st_id IN (2,4) THEN f.post_addr
+	   		ELSE f.legal_addr
+	   END post_addr,
+       f.phone
+FROM brand b
+JOIN factory f ON b.idb = f.idb 
+WHERE f.legal_addr ILIKE '%Россия%'
+```
+	
+74. Найти производителей, автомобили которых в 2018 году реже остальных требовали ремонта. Выдать названия брендов и количество ремонтов их автомобилей.
 
-SELECT gnz
-FROM maintenance
-GROUP BY gnz
-HAVING COUNT(date_work) = 1
+```
+SELECT b.name,
+       COUNT(mt.mt_id) "Количество ремонтов"
+FROM maintenance mt
+JOIN brand b ON b.idb = mt.idb
+JOIN maintenancetype mtt ON mtt.mt_id = mt.mt_id
+WHERE mtt.mt_id::int = 20
+      AND
+      EXTRACT(YEAR FROM mt.date_work) = 2018
+GROUP BY mt.mt_id, b.name
+ORDER BY 2 ASC
+LIMIT 1
+```
+
+75. Найти механиков, которые выполнили больше работ, чем Голубев Д.Н. В выдачу включить фамилии и инициалы этих людей.
+
+```
+SELECT mec.sname_initials
+FROM maintenance mt
+JOIN mechanic mec ON mt.id_mech = mec.id_mech
+WHERE mt.mt_id::INT BETWEEN 1 AND 18
+GROUP BY 1
+HAVING COUNT(date_work) > (SELECT 
+	   		   COUNT(date_work) cdw
+			   FROM maintenance
+			   WHERE id_mech = 12
+			   AND
+			   mt_id::INT BETWEEN 1 AND 18
+			   )
+```
+	
+76. Найти автомобили, зарегистрированные в один и тот же день. Выдать государственные номерные знаки, в одном столбце через пробел производителя, марку и модель каждого из них, дату регистрации.
+	
+```
+SELECT v.gnz,
+       CONCAT_WS(' ',br.name, m.name, mod.model_name),
+       v.date$reg_certif
+FROM vehicle v
+JOIN vehicle b ON b.date$reg_certif = v.date$reg_certif
+JOIN brand br ON br.idb = v.idb
+JOIN marka m ON m.idm = v.idm
+JOIN model mod ON mod.idmo = v.idmo
+WHERE v.gnz != b.gnz
+```
+
+77. Для каждого автомобиля указать число посещения им предприятия (учитывать, что могут быть автомобили, которые ни разу не обслуживались, в этом случае выводить значение 0). Вывести государственные номерные знаки, серии, номера и даты их свидетельств о регистрации транспортного средства и количество посещений. Выдачу отсортировать по количеству посещений.
+
+```
+SELECT  v.gnz,
+	v.ser$reg_certif,
+	v.num$reg_certif,
+	v.date$reg_certif,
+	COUNT(mt.date_work) totalW
+FROM maintenance mt
+RIGHT JOIN vehicle v ON mt.gnz = v.gnz
+GROUP BY 1,2,3,4
+ORDER BY totalW DESC
+```
+	
+78. Найти автомобили, которые в 2016, 2017 и 2018 годах совершили 80% и более посещений предприятия от всего объема их обслуживания за все время. Вывести их государственные номерные знаки. 
+
+```
+SELECT m.gnz, 
+       COUNT(to_char(m.date_work, 'yyyy')) 
+FROM maintenance m,
+    (SELECT m.gnz, COUNT(to_char(m.date_work, 'yyyy')) 
+     FROM maintenance m 
+     WHERE to_char(date_work, 'yyyy') = '2016' OR to_char(date_work, 'yyyy') = '2017' 
+     OR to_char(date_work, 'yyyy') = '2018' GROUP BY m.gnz) 
+TEMP WHERE m.gnz = TEMP.gnz GROUP BY m.gnz, TEMP.count 
+HAVING COUNT(to_char(m.date_work, 'yyyy'))*0.8 <= TEMP.count
+```
+
+79. Найти механиков, получивших сертификат на работу после достижения ими пенсионного возраста. Учесть, что до 2018 года возраст выхода на пенсию для мужчин составлял 60, а для женщин – 55 лет, а с 2018 года эти показатели увеличены на 5 лет и действуют относительно тех, кому настал срок выхода на пенсию. Прогрессивную шкалу роста пенсионного возраста не учитывать. Выдать фамилии, инициалы и даты рождения механиков, даты получения ими сертификатов и приема на работу.
+
+```
+SELECT sname_initials,
+       born,
+       certif_date,
+       work_in_date
+FROM mechanic
+WHERE DATE_PART('YEAR',AGE(born)) >= 65
+OR 
+DATE_PART('YEAR',AGE(born)) >= 60
+```
+	
+80. Сформировать отчет о выполненных ремонтах автомобилей за все время работы предприятия. В отчете отобразить: государственный номерной знак; в одном столбце через запятую наименование производителя, марку и модель; также в одном столбце указать через пробел серию, номер и дату выдачи свидетельства о регистрации транспортного средства; дату проведения ремонта; фамилию и инициалы механика, выполнившего ремонт; техническое заключение по ремонту. Все даты приводить в формате "dd.mm.yyyy".
+
+```
+SELECT mt.gnz,
+       CONCAT_WS(', ',f.factory_name, m.name, mod.model_name),
+       CONCAT_WS(' ',v.ser$reg_certif, num$reg_certif, to_char(date$reg_certif,'dd.mm.yyyy')),
+       to_char(mt.date_work,'dd.mm.yyyy'),
+       mec.sname_initials,
+       mt.tech_cond_resume
+FROM maintenance mt
+JOIN factory f ON f.idf = mt.idf 
+JOIN marka m ON m.idm = mt.idm
+JOIN model mod ON mod.idmo = mt.idmo
+JOIN vehicle v ON mt.gnz = v.gnz
+JOIN mechanic mec ON mec.id_mech = mt.id_mech
+```
+	
+81. Определить долю в процентах (с точностью до двух значащих цифр мантиссы) в общем результате предприятия механика Савостьянова А.В. Считать, что все работы (заказы на ремонт или обслуживание) являются одинаково весомыми в общих итогах работы предприятия. 
+
+```
+WITH
+sev AS
+(
+SELECT m.id_mech mec,
+       COUNT(mt.date_work) cmt
+FROM mechanic m
+JOIN maintenance mt ON mt.id_mech = m.id_mech 
+WHERE m.sname_initials ILIKE '%Савостьянов А.В.%'
+GROUP BY 1
+)
+SELECT ROUND((cmt / (SELECT COUNT(date_work)
+		     FROM maintenance)::numeric) * 100, 2)
+FROM sev
+```
+	
+82. Сформировать список инвестиционно не выгодных автомобилей. К таковым относятся автомобили с пробегом не менее 100 000 км, или имеющие возраст 3 и более года, или побывавшие в ремонте хотя бы один раз, а также автомобили из транспортных групп "Специальные автомобили", "Специализированные автомобили", "Спортивные автомобили" или "Спортивные мотоциклы". В список включить столбцы: "Государственный номерной знак", "Возраст", "Пробег" и "Дата последнего ремонта". Если автомобиль в ремонте не был, то в последнем столбце должен храниться пробел. 
+
+```	
+WITH
+remont AS
+(
+	SELECT gnz,
+	       COUNT(date_work) cdw
+	FROM maintenance
+	GROUP BY gnz
+),
+spec_id AS
+(
+	SELECT id_tg
+	FROM transpgroup
+	WHERE name ILIKE ANY (ARRAY['%Специальные автомо-били%',
+					  '%Специализированные автомобили%',
+					  '%Спортивные автомобили%',
+					  '%Спортивные мотоциклы%'])
+)
+SELECT v.gnz "Гос. номерной знак",
+	   DATE_PART('YEAR',AGE(v.date_made)) "Возраст",
+	   v.run "Пробег",
+	   CASE
+	   		WHEN to_char(MAX(mt.date_work),'dd-mm-yyyy') IS NOT NULL THEN to_char(MAX(mt.date_work),'dd-mm-yyyy')
+	   		ELSE COALESCE(to_char(MAX(mt.date_work::DATE),'dd-mm-yyyy'),'') 
+	   END "Дата последнего ремонта"
+FROM vehicle v
+LEFT JOIN remont ON remont.gnz = v.gnz
+LEFT JOIN spec_id ON spec_id.id_tg = v.id_tg
+LEFT JOIN maintenance mt ON mt.gnz = v.gnz
+WHERE v.run >= 100000
+	  OR
+	  DATE_PART('YEAR',AGE(v.date_made)) >= 3
+	  OR
+	  remont.cdw >= 1
+	  OR
+	  v.id_tg = spec_id.id_tg
+GROUP BY v.gnz, v.date_made, v.run
+```
+	
+83. Определить проводилось ли не регламентное техническое обслуживание автомобилей японского производства. Не регламентным считается любое техническое обслуживание, не предусмотренное для автомобилей, выпущенных японскими производителями. В выдаче указать государственные номерные знаки, производителя, марку, модель автомобиля, вид, дату и заключение по проведенному не регламентному ТО, фамилию и инициалы механика, выполнявшего работы.
+
+```
+SELECT DISTINCT ON (mt.gnz) 
+       mt.gnz,
+       b.name,
+       m.name,
+       mtt.name,
+       mod.model_name,
+       mt.date_work::DATE,
+       mt.tech_cond_resume,
+       mec.sname_initials
+FROM maintenance mt
+JOIN maintenancetype mtt ON mt.mt_id = mtt.mt_id
+JOIN brand b ON b.idb = mt.idb
+JOIN marka m ON mt.idm = m.idm
+JOIN model mod ON mod.idmo = mt.idmo
+JOIN mechanic mec ON mec.id_mech = mt.id_mech
+WHERE mt.st_id = 6
+AND
+mtt.mt_id::INT BETWEEN 1 AND 10
+```
+</details>	
+	
+<details>
+<summary>Задания повышенной сложности</summary>
+</details>
+
 
 Совместное использование конструкций языка SQL
 
