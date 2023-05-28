@@ -124,9 +124,10 @@ FROM vehicle
 ```
 </details>
 	
-	<details><summary>Отбор по условию и сортировка (по одной таблице)</summary>
+<details>
+<summary>Отбор по условию и сортировка (по одной таблице)</summary>
 		
-	</details>
+</details>
 	
 ## Выборка из нескольких таблиц
 	
