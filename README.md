@@ -1,7 +1,7 @@
 # ОреолАвтосервис
 Практическая работа с запросами в PostgreSQL. 
 
-<details><summary>Простая выборка</summary>
+<details><summary><strong>Простая выборка</strong></summary>
 1. Выдать список механиков (все столбцы таблицы mechanic).
 		
 ```sql
